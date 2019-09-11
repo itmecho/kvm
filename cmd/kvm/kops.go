@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/itmecho/kvm/pkg/download"
 	"github.com/itmecho/kvm/pkg/github"
 	"github.com/itmecho/kvm/pkg/selector"
 	"github.com/prometheus/common/log"
@@ -43,20 +44,17 @@ var kopsCommand = &cobra.Command{
 		if _, err := os.Stat(binPath); os.IsNotExist(err) {
 			// Download if required
 			log.Info("Downloading kops ", r.Name)
-			url := fmt.Sprintf("https://github.com/kubernetes/kops/releases/download/%s/kops-linux-amd64", r.Name)
-			resp, err := client.Get(url)
+			kops, err := download.Kops(client, r.Name)
 			if err != nil {
 				return err
 			}
-			// TODO don't do this!
-			defer resp.Body.Close()
 
 			f, err := os.Create(binPath)
 			if err != nil {
 				return err
 			}
 
-			_, err = io.Copy(f, resp.Body)
+			_, err = io.Copy(f, kops)
 			if err != nil {
 				return err
 			}
