@@ -2,9 +2,12 @@ package download
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -43,4 +46,38 @@ func Kubectl(client *http.Client, version string) (io.Reader, error) {
 	}
 
 	return nil, fmt.Errorf("Something went wrong downloading kubectl: kubectl not found in downloaded archive")
+}
+
+// Terraform returns a reader containing the file contents of the given terraform version
+func Terraform(client *http.Client, version string) (io.Reader, error) {
+	version = strings.TrimPrefix(version, "v")
+	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%[1]s/terraform_%[1]s_linux_amd64.zip", version)
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	zipData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(zipData), resp.ContentLength)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, zippedFile := range zipReader.File {
+		if zippedFile.Name == "terraform" {
+			terraformFile, err := zippedFile.Open()
+			if err != nil {
+				return nil, err
+			}
+
+			return terraformFile, nil
+		}
+	}
+
+	return nil, fmt.Errorf("terraform not found in downloaded zip archive")
 }
